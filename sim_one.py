@@ -1,51 +1,47 @@
-# Primeiro simulador de trânsito planetário da disciplina de Astrofísica Observacional
-
-# Carrega Bibliotecas
+# Importando bibliotecas
 
 import numpy as np
-from numpy import sqrt, arcsin, sin, cos, pi
-
+from numpy import sqrt, arcsin, sin, cos, pi, matlib
 from math import ceil
+
 from astropy.constants import M_sun, R_sun, G
 import astropy.units as u
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-from stochastic.processes.noise import FractionalGaussianNoise
+from stochastic.processes.noise import FractionalGaussianNoise # pip install stochastic
 
-# Função linspace que permite float
+# Funções criadas
 
 def linspace_float(low, up, leng):
     step = ((up-low) * 1.0 / leng)
     return [low+i*step for i in range(leng)]
 
-""" # Execução """
+# Estilo dos gráficos
 
-''' Declaração de variáveis '''
+sns.set_style('darkgrid')
+sns.set_context(context = 'paper', font_scale= 1.5)
 
-# Constantes fundamentais
+# Constantes
 
-M_sun = M_sun.value                                           # Massa do sol em kg
-R_sun = R_sun.value                                           # Raio do sol em m
+M_sun = M_sun.value
+R_sun = R_sun.value
 
 # Conversão de unidades
 
 Gday = G.to(u.m**3 / (u.kg * u.d**2))
-Gday = Gday.value                                             # Constante gravitacional (m^3 * kg^2 * dia^(-2))
+Gday = Gday.value
 
 # Parâmetros de entrada
 
-raio = float(input(' Raio da estrela (em raio solar): '))
-frac = float(input(' Fração do raio solar (ex.: Terra (0.01), Jupiter (0.1): '))
-
-Rstar = raio * R_sun                                          # Raio da estrela em unidades solares
-Rplanet = frac * R_sun                                        # Fração de raios solares. Raio da Terra = 0.00915 Rsun
-raizDepth = frac/raio                                         # Raiz da profundidade
-depth = (raizDepth)**2                                        # Profundidade de trânsito
-Porb = 15                                                     # Período orbital em dias
-ai = 90                                                       # Ângulo de inclinação da estrela (entre 0 e 90 graus)
-cadence_kepler = 0.020833                                     # Cadência em dias (Missão Kepler)
-cadence_plato = 0.0002895                                     # Cadência em dias (Missão Plato)
+Rstar = 1 * R_sun               # Raio da estrela em unidades solares
+Rplanet = 0.1 * R_sun           # Fração de raios solares. Raio da Terra = 0.00915 Rsun
+depth = (Rplanet/Rstar)**2      # Profundidade de trânsito
+Porb = 150                      # Período orbital em dias
+ai = 90                         # Ângulo de inclinação da estrela (entre 0 e 90 graus)
+cadence_kepler = 0.020833       # Cadência em dias (Missão Kepler)
+cadence_plato = 0.0002895       # Cadência em dias (Missão Plato)
 
 # Escolha da cadência
 
@@ -55,6 +51,7 @@ if cadence_question.lower() in ['plato']:
     cadence = cadence_plato
 else:
     cadence = cadence_kepler
+    
 
 # Semi-eixo maior (aa)
 
@@ -79,9 +76,9 @@ tF = (Porb / pi) * arcsin(sin(tTotal * (pi / Porb))) * sqrt(part3)/sqrt(part2) #
 
 tFh = tF * 24 # em horas
 
-print(f'\n duração do trânsito total: {tT} hr')
-print(f'\n duração entre o segundo e terceiro contato: {tFh} hr')
-print(f'\n diferença entre as durações: {tT - tFh} hr')
+print(f'\n duração do trânsito total: {tT:.4f} hr')
+print(f'\n duração entre o segundo e terceiro contato: {tFh:.4f} hr')
+print(f'\n diferença entre as durações: {(tT - tFh):.4f} hr')
 
 # Criando um trânsito planetário (onda trapezoidal)
 
@@ -93,31 +90,100 @@ ntF = ceil(tF/cadence)                     # Número de pontos entre o 2º e o 3
 interTransit = ceil(Porb/cadence - tramp)  # Número de pontos entre os dois trânsitos
 
 rampdow = linspace_float(1, 1-depth, nt)
-rampup = linspace_float(1-depth,1,nt + 1)
+rampup = linspace_float(1-depth,1,nt)
 
 x1 = (1 - depth) * np.ones(ntF)
 x2 = np.ones(interTransit)
 
 rep = 10
-pulse = np.concatenate([rampdow,x1,rampup,x2])
-pulse_train = np.repeat(pulse, 10).reshape(len(pulse),rep)  # era necessário?
+pulse = np.concatenate([x2, rampdow,x1,rampup,x2])
+pulse_train = np.matlib.repmat(pulse, 1, rep)
 
-PT = np.reshape(pulse_train, (len(pulse_train)*rep, 1))     # tentativa
+PT = pulse_train[0]
 time = [float(x)*cadence for x in range(0,len(PT))]
-time = np.array(time).reshape((-1, 1))
 
-#plt.plot(time, PT)
 
-# Criação do ruído
+fig, ax = plt.subplots(figsize = (20,10))
+plt.plot(time, PT, c = 'black')
+
+plt.xlabel('tempo (em dias baricêntricos Julianos)')
+plt.ylabel('Fluxo normalizado')
+plt.title('Trânsito planetário sem ruído')
+
+# Criação do ruído 
 
 fs = len(time) - 1
-gn = FractionalGaussianNoise(hurst=0.5)
-noise = gn.sample(fs + 1)
-noise = np.array(noise).reshape((-1, 1))
+fGn = FractionalGaussianNoise(hurst = 0.5)
+noise = fGn.sample(n = fs + 1)
 
 nPT = PT + noise
 
-fig, ax = plt.subplots(figsize = (20,10))
-plt.scatter(time,nPT, s = 1)
+# Plot do ruído
 
-plt.show()
+fig, ax = plt.subplots(figsize = (20,10))
+
+plt.scatter(time,nPT, c = 'black')
+plt.xlabel('tempo (em dias baricêntricos Julianos)')
+plt.ylabel('Fluxo normalizado')
+plt.title('Trânsito planetário com ruído')
+
+### Modelo da modulação rotacional ###
+
+# Parâmetros de entrada
+
+gamma1 = 0.3985             # gamma 1 e 2 são parâmetros do escurecimento do limbo
+gamma2 = 0.2586  
+           
+ap = 1 - gamma1 - gamma2    # ap, bp e cp são coeficientes que nós dá a magnitude
+bp = gamma1 + 2*gamma2      # bolométrica da fotosfera como uma função do ângulo
+cp = -gamma2                # do limbo adotado como uma lei quadrátca do escurecimento
+                            # do limbo
+
+cs = 0.850                  # coeficiente que especifica o contraste do spot bolométrico
+cf0 = 1.115                 
+Q = 0.5                     # é uma função da fase do ciclo solar
+As = 0.01                   # é a área do spot da região ativa em unidades de ...
+
+ii = ai * pi/180            # ângulo de inclinação em reseito da linha de visada
+theta = 0.17 * pi           # é a posição da região ativa na estrela 
+             
+Peq = 15                    # em dias
+AmpliP = 0.2                # alpa = DeltaPer/Per
+
+P2 = Peq * (1 - AmpliP * (sin(theta)) ** 2) ** (-1)
+lambda_ = 2 * pi / 5
+
+
+# Spot 1
+
+omega = 2 * pi / Peq        # velocidade angular da estrela
+
+c = (ap + 2 * bp / 3 + cp / 2) ** (-1)
+
+# Ângulo do limbo:
+mii = cos(ii) * cos(theta) + sin(ii) * sin(theta) * cos(lambda_ + omega * np.linspace(0, time[-1], len(time))) 
+
+cf = cf0 * (1 - mii)        # Intensidade do contraste da facúla
+
+s1 = 1 + As * (ap + bp * mii + cp * mii ** 2) * c * (Q * cf - cs) * mii
+
+# Spot 2
+
+omega = 2 * pi / P2
+
+mii = cos(ii) * cos(theta) + sin(ii) * sin(theta) * cos(lambda_ + omega * np.linspace(0, time[-1], len(time))) 
+
+cf = cf0 * (1 - mii)
+
+s2 = 1 + As * (ap + bp * mii + cp * mii ** 2) * c * (Q * cf - cs) * mii
+
+spots = (s1 + s2) - np.mean(s1 + s2)
+
+# Plot
+
+wts = spots + nPT
+
+fig, ax = plt.subplots(figsize = (20,10))
+plt.scatter(time, wts, c = 'black')
+plt.xlabel('tempo (dias baricêntricos Julianos)')
+plt.ylabel('Fluxo normalizado')
