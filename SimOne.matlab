@@ -78,3 +78,61 @@ noise=ffgn(stdnoise,0.500001,1,fs+1,0)'; %H=0.5 (Gaussian noise)
 % noisy PT time series
 nPT=PT+noise;
 plot(time,nPT,'.');
+
+%%%%% The model of the rotational modulation
+%%%% Input parameters
+gamma1=0.3985; % gamma 1 and 2 are parameters of Limb Darkening
+gamma2=0.2586;
+
+ap=1-gamma1-gamma2;
+bp=gamma1+2*gamma2;
+cp=-gamma2; % ap, bp and cp are the coefficients that give us the bolometric specific intesity
+% of the photoshere as a function of the limb angle adopting a quadratic
+% limb-darkening law
+
+cs=0.850; % it id a coefficient specifying the spot bolometric contrast
+cf0=1.115;
+Q=0.5; % it is a function of the phase of the solar cycle
+As=0.01; % it is the spot area of the ith active region in unit of the solar surface
+
+ii=ai*pi/180; % inclination angle with respect to the line of sight
+theta=0.17*pi; % it is the position of an active region on star (e.g., 30 deg)
+
+Peq=15; % in days
+AmpliP=0.2; % alpha=DeltaPer/Per
+P2=Peq*(1-AmpliP*(sin(theta))^2)^(-1);
+lambda=2*pi/5;
+
+% Spot 1
+
+omega=2*pi/Peq; % the angular velocity of the star
+c=(ap+2*bp/3+cp/2)^(-1);
+mii=cos(ii).*cos(theta)+sin(ii).*sin(theta).*cos(lambda+omega.*linspace(0,time(end),length(time))); % angle of limb
+
+cf=cf0.*(1-mii'); % contrast intensity of faculae
+s1=1+(As)*(ap+bp.*mii'+cp.*mii'.^2).*c.*((Q.*cf-cs).*mii');
+
+% Spot 2
+omega=2*pi/P2;
+mii=cos(ii).*cos(theta)+sin(ii).*sin(theta).*cos(lambda+omega.*linspace(0,time(end),length(time))); % angle of limb
+
+cf=cf0.*(1-mii'); % contrast intensity of faculae
+s2=1+(As)*(ap+bp.*mii'+cp.*mii'.^2).*c.*((Q.*cf-cs).*mii');
+
+spots=(s1+s2)-mean(s1+s2);
+
+%%%%% whole time series
+wts=spots+nPT;
+
+figure;
+
+plot(time,wts,'.');
+xlabel('time (days)','FontSize',12);
+ylabel('Normalized Flux','FontSize',12);
+
+
+
+
+
+
+
