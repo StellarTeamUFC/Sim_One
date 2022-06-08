@@ -131,6 +131,9 @@ plt.title('Trânsito planetário com ruído')
 
 # Parâmetros de entrada
 
+# Paper base: BONOMO, Aldo S.; LANZA, Antonino F. Starspot activity and rotation of the planet-hosting star Kepler-17. 
+#Astronomy & Astrophysics, v. 547, p. A37, 2012.
+
 gamma1 = 0.3985             # gamma 1 e 2 são parâmetros do escurecimento do limbo
 gamma2 = 0.2586  
            
